@@ -27,6 +27,7 @@ The dashboard provides an **Empty Bucket** action that handles this for you, reg
 1. In the Cloudflare dashboard, go to the **R2 object storage** page.
 
    <DashButton url="/?to=/:account/r2/overview" />
+
 2. Select the bucket you want to empty.
 3. Go to the **Settings** tab.
 4. Scroll to the **Empty Bucket** section.
@@ -38,6 +39,19 @@ The dashboard provides an **Empty Bucket** action that handles this for you, reg
 Emptying a bucket is irreversible. All objects in the bucket are permanently deleted.
 
 :::
+
+### API
+
+Use the [Cloudflare REST API](/api/resources/r2/) with an empty `prefix` query parameter to delete all objects in a bucket. This preserves the bucket and its configuration.
+
+```sh
+curl -X DELETE "https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/r2/buckets/<BUCKET_NAME>/objects?prefix=" \
+  -H "Authorization: Bearer <API_TOKEN>"
+```
+
+The response contains a prefix delete job. If the bucket contains 1,000 objects or fewer, R2 attempts to clear the bucket synchronously and returns `COMPLETED` with `endTime`. If the bucket contains more than 1,000 objects, R2 returns `ENQUEUED` and continues deleting objects in the background. To check the job status, refer to [Check job status](/r2/objects/delete-objects/#check-job-status).
+
+If the bucket is in a [jurisdiction](/r2/reference/data-location/#jurisdictional-restrictions), include the `cf-r2-jurisdiction` header.
 
 ### Object lifecycle rules
 
@@ -86,6 +100,7 @@ You can delete a bucket in various ways.
 1. In the Cloudflare dashboard, go to the **R2 object storage** page.
 
    <DashButton url="/?to=/:account/r2/overview" />
+
 2. Select the bucket you want to delete.
 3. Go to the **Settings** tab.
 4. Scroll to the **Delete Bucket** section. If the bucket is not empty, select **Empty Bucket** first to clear all objects.

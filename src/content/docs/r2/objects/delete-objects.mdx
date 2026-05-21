@@ -17,6 +17,7 @@ You can delete objects from R2 using the dashboard, Workers API, S3 API, or comm
 1. In the Cloudflare dashboard, go to the **R2 object storage** page.
 
    <DashButton url="/?to=/:account/r2/overview" />
+
 2. Select your bucket.
 3. (Optional) Select the **View prefixes as directories** checkbox to view prefixes grouped as [folders](/r2/objects/#prefixes-and-folders).
 4. Select the objects or folders you want to delete. You can select a mix of both in the same operation.
@@ -92,6 +93,67 @@ s3.delete_object(Bucket="my-bucket", Key="image.png")
 </Tabs>
 
 For complete S3 API documentation, refer to [S3 API](/r2/api/s3/api/).
+
+## Delete by prefix via API
+
+Use the [Cloudflare REST API](/api/resources/r2/) to delete all objects under a prefix. The `prefix` query parameter must be present.
+
+Non-empty prefixes must end with `/`. URL-encode the prefix in the request URL. For example, use `folder%2F` for `folder/`.
+
+```sh
+curl -X DELETE "https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/r2/buckets/<BUCKET_NAME>/objects?prefix=folder%2F" \
+  -H "Authorization: Bearer <API_TOKEN>"
+```
+
+If the bucket is in a [jurisdiction](/r2/reference/data-location/#jurisdictional-restrictions), include the `cf-r2-jurisdiction` header:
+
+```sh
+curl -X DELETE "https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/r2/buckets/<BUCKET_NAME>/objects?prefix=folder%2F" \
+  -H "Authorization: Bearer <API_TOKEN>" \
+  -H "cf-r2-jurisdiction: eu"
+```
+
+The response contains a prefix delete job. If the prefix contains 1,000 objects or fewer, R2 attempts to delete the objects synchronously and returns `COMPLETED` with `endTime`. If the prefix contains more than 1,000 objects, R2 returns `ENQUEUED` and continues deleting objects in the background.
+
+```json
+{
+	"success": true,
+	"errors": [],
+	"messages": [],
+	"result": {
+		"id": "<JOB_ID>",
+		"startTime": "2026-05-21T00:00:00.000Z",
+		"endTime": "2026-05-21T00:00:01.000Z",
+		"status": "COMPLETED",
+		"jobType": "prefixDelete",
+		"prefixDelete": {
+			"prefix": "folder/",
+			"deletedObjects": 10,
+			"isBucketClear": false
+		}
+	}
+}
+```
+
+### Check job status
+
+If the delete response returns `status: "ENQUEUED"`, check the job status until the job is no longer `ENQUEUED` or `RUNNING`.
+
+List prefix delete jobs for a bucket:
+
+```sh
+curl "https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/r2/buckets/<BUCKET_NAME>/jobs?jobType=prefixDelete&status=ENQUEUED&maxKeys=1000" \
+  -H "Authorization: Bearer <API_TOKEN>"
+```
+
+Repeat the request with `status=RUNNING` to check jobs that have started. Use `continuationToken` to request the next page. The `status` parameter requires `jobType`. Status values are `ENQUEUED`, `RUNNING`, `COMPLETED`, `FAILED`, and `CANCELLED`.
+
+Get one job by ID:
+
+```sh
+curl "https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/r2/buckets/<BUCKET_NAME>/jobs/<JOB_ID>" \
+  -H "Authorization: Bearer <API_TOKEN>"
+```
 
 ## Delete via Wrangler
 
